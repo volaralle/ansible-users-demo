@@ -1,0 +1,11 @@
+---
+- name: Users and group creation
+  hosts: 
+    - test-keys-ansible
+  become: yes
+  gather_facts: yes
+  roles:
+    - users
+  vars_files:
+    - ./user-list.yml 
+    - ./keys-alias.yml

@@ -1,0 +1,84 @@
+---
+- block:
+    - name: Create group
+      group:
+        name:    "{{ item.username }}"
+        state:   "{{ item.state | default(omit) }}"
+        gid:     "{{ item.gid | default(omit) }}"
+        system:  "{{ item.system | default(omit) }}"
+      with_items: "{{ sshd_users }}"
+
+
+    - name: Create users
+      user:
+        name:       "{{ item.username }}"
+        group:      "{{ item.group | default(item.username)}}"
+        groups:     "{{ item.groups |default('') }}"                        # if empty then remove from every group except primary group
+        append:     "no"                                                    # set group to jush the list in groups variable
+        password:   "{{ item.pass|default(omit) }}"
+        createhome: "{{ item.createhome | default('yes') }}"                # no - do nothing, or create homedir
+        home:       "{{ item.homedir | default('/home/'+item.username) }}"  # set homedir location
+        shell:      "{{ item.shell | default('/bin/bash') }}"
+        uid:        "{{ item.uid | default(omit) }}"
+        system:     "{{ item.system | default(omit) }}"
+        update_password: always
+    #  when:
+    #    - item.username != sudo_user   # do not run for executing user: we can't change uid for existing processes
+    #    - item.username != 'root'
+      with_items: "{{ sshd_users }}"
+
+    - name: Creating .ssh dir only for item.ssh_key_file or item.authorized_keys
+      file:
+        path: "/home/{{ item.username }}/.ssh"
+        owner: "{{ item.username }}"
+        group: "{{ item.group | default(item.username) }}"
+        state: "directory"
+        mode: "0700"
+      with_items: "{{ sshd_users }}"
+      when:
+        - item.authorized_keys is defined and not item.deleted 
+      ignore_errors: yes
+
+    - name: Templating ssh authorized_keys
+      template:
+        src: "authorized_keys.j2"
+        dest: "/home/{{ item.username }}/.ssh/authorized_keys"
+        validate: "ssh-keygen -l -f %s"
+        owner: "{{ item.username }}"
+        group: "{{ item.group | default(item.username) }}"
+        mode: "0600"
+        backup: no
+      when: item.authorized_keys is defined and not item.deleted
+      with_items: "{{ sshd_users }}"
+      #ignore_errors: yes
+
+    - name: Sudoers | update sudoers file and validate
+      lineinfile: "dest=/etc/sudoers
+        insertafter=EOF
+        line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
+        regexp='^{{ item.username }} .*'
+        state=present"
+      when: '{{ item.use_sudo }}'
+      with_items: '{{ sshd_users }}'
+
+    - name: Delete users
+      user:
+        name: "{{ item.username }}"
+        state: "absent"
+        remove: true
+      with_items: "{{ sshd_users }}"
+      when: item.deleted
+
+    - name: Delete group
+      group:
+        name:    "{{ item.username }}"
+        state: "absent"
+      with_items: "{{ sshd_users }}"
+      when: item.deleted
+
+    - name: Delete content & directory
+      file:
+        state: absent
+        path: /home/{{ item.username }}
+      with_items: "{{ sshd_users }}"
+      when: item.deleted

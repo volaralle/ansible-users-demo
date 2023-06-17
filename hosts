@@ -1,0 +1,8 @@
+[all]
+host-01
+host-02
+host-03
+
+[all:vars]
+domain_name="ddp.ru"
+

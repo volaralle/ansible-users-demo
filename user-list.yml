@@ -1,0 +1,32 @@
+sshd_users:
+  - username: dcp_ansible
+    groups:
+      - wheel
+    authorized_keys: "{{
+        dcp_ansible_pub
+      + volaral_pub
+      }}"
+    deleted: false
+    use_sudo: true
+
+  - username: test
+    groups:
+      - wheel
+    authorized_keys: "{{
+        system_ddp_pub
+      + volaral_pub
+      }}"
+    deleted: false
+    use_sudo: false
+
+  - username: system_ddp
+    groups:
+      - wheel
+    authorized_keys: "{{
+        system_ddp_pub
+      + volaral_pub
+      }}"
+    deleted: true
+    use_sudo: true
+
+
